@@ -60,7 +60,21 @@ jobs:
             --branch "$SOURCE_BRANCH" "$SOURCE_REPOSITORY" openwrt
           mkdir -p build-metadata
           git -C openwrt log -1 --format='%H%n%cI%n%s' | tee build-metadata/lede-revision.txt
-          cp openwrt/feeds.conf.default build-metadata/feeds.conf.default
+
+      - name: Configure external feeds
+        run: |
+          set -eux
+          feeds_file=openwrt/feeds.conf.default
+
+          # Keep one authoritative Passwall source for both LuCI and its cores.
+          sed -i -E '/^src-git (passwall_packages|passwall_luci) /d' "$feeds_file"
+          sed -i '1i src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;main' "$feeds_file"
+          sed -i '1i src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main' "$feeds_file"
+
+          head -n 10 "$feeds_file"
+          test "$(grep -c '^src-git passwall_packages ' "$feeds_file")" -eq 1
+          test "$(grep -c '^src-git passwall_luci ' "$feeds_file")" -eq 1
+          cp "$feeds_file" build-metadata/feeds.conf.default
 
       - name: Update and install feeds
         working-directory: openwrt
@@ -99,10 +113,20 @@ jobs:
             echo '::warning::Some requested Kconfig symbols were dropped; see build metadata.'
           }
 
-          grep -E '^CONFIG_TARGET_x86=y$' .config
-          grep -E '^CONFIG_TARGET_x86_64=y$' .config
-          grep -E '^CONFIG_TARGET_x86_64_DEVICE_generic=y$' .config
-          grep -E '^CONFIG_GRUB_EFI_IMAGES=y$' .config
+          require_config() {
+            if ! grep -Fqx "$1" .config; then
+              echo "::error::Required firmware feature was not selected after defconfig: $1"
+              exit 1
+            fi
+          }
+
+          require_config 'CONFIG_TARGET_x86=y'
+          require_config 'CONFIG_TARGET_x86_64=y'
+          require_config 'CONFIG_TARGET_x86_64_DEVICE_generic=y'
+          require_config 'CONFIG_GRUB_EFI_IMAGES=y'
+          require_config 'CONFIG_PACKAGE_luci-app-passwall=y'
+          require_config 'CONFIG_PACKAGE_luci-app-ssr-plus=y'
+          require_config 'CONFIG_PACKAGE_luci-app-docker=y'
 
       - name: Download sources
         working-directory: openwrt
