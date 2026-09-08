@@ -33,6 +33,9 @@ LuCI feed 中的 Passwall 形成两个来源，而且没有配套的 Passwall pa
 
 下表列出为了匹配当前树而进行的兼容迁移。未列出的有效选项保持原值。
 
+rootfs 分区大小已从旧配置的 300 MiB 调整为当前固件常用的 1024 MiB（1 GiB）；
+kernel 分区仍保持 16 MiB。
+
 | 旧符号 | 当前处理 | 原因 |
 | --- | --- | --- |
 | `TARGET_x86_64_Generic` | `TARGET_x86_64_DEVICE_generic` | profile 名称大小写/格式早已改变；旧符号不存在。 |
